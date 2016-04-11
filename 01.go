@@ -21,7 +21,7 @@ func main() {
 	fmt.Println("images will be saved to: ", dir)
 
 	// get all the images
-	err = getImages(dir, 501)
+	err = getImages(dir, 15)
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +56,12 @@ func getImage(dir, imageURL string) error {
 // getImages calls queryURL, parses the response and downloads all
 // image URLs in the response to dir.
 func getImages(dir string, max int) error {
+	// count is the total results we've received already
 	var count int
+
+	// continue_ and aicontninue are saved from the previous request
+	// to pass back to the API to continue
+	var continue_, aicontinue string
 
 	for {
 		// If we've exceeded that max we want to get, then stop
@@ -79,6 +84,11 @@ func getImages(dir string, max int) error {
 			params.Set("ailimit", strconv.Itoa(max-count))
 		} else {
 			params.Set("ailimit", strconv.Itoa(max-count))
+		}
+
+		if len(continue_) > 0 && len(aicontinue) > 0 {
+			params.Set("continue", continue_)
+			params.Set("aicontinue", aicontinue)
 		}
 
 		// call the wikimedia API
@@ -109,6 +119,9 @@ func getImages(dir string, max int) error {
 		// iterate over all image URLs
 		for _, img := range qr.Query.AllImages {
 			count++
+			continue_ = qr.Continue.Continue
+			aicontinue = qr.Continue.AIContinue
+
 			log.Println(img.URL, count)
 
 			// go get that image!
@@ -128,6 +141,14 @@ const (
 // queryResp mirrors the JSON structure returned by queryURL, specifying only
 // the info we're interested in.
 type queryResp struct {
+	// To get the next page of results, we pass these values back to the
+	// API
+	Continue struct {
+		Continue   string
+		AIContinue string
+	}
+
+	// The actual results
 	Query struct {
 		AllImages []struct {
 			URL string
