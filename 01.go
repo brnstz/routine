@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"image/color"
 	"time"
 
 	"github.com/brnstz/routine/wikimg"
@@ -26,16 +25,11 @@ func main() {
 		}
 
 		go func() {
-			c, err := wikimg.AvgColor(imgURL)
+			c, err := wikimg.TopColor(imgURL)
 			if err != nil {
 				fmt.Println(err)
 			} else {
-				rgba, ok := c.(color.RGBA)
-				if !ok {
-					panic(err)
-				}
-
-				fmt.Printf("#%02x%02x%02x\n", rgba.R, rgba.G, rgba.B)
+				fmt.Printf("#%02x%02x%02x\n", c.R, c.G, c.B)
 				fmt.Printf("%v\n\n", imgURL)
 			}
 		}()

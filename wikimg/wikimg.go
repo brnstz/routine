@@ -10,7 +10,6 @@ import (
 	"image/color"
 	"image/color/palette"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -148,10 +147,9 @@ func (p *Puller) Next() (string, error) {
 	return p.qr.Query.AllImages[p.i].URL, nil
 }
 
-// AvgColor returns the average color.Color for the image located at imgURL.
-// This is definitely not optimized and may not even be correct. I just hacked
-// this together. We support png, jpeg and gif images.
-func AvgColor(imgURL string) (avgColor color.Color, err error) {
+// TopColor downloads the image at imgURL and maps every pixel to a 256
+// color palette, returning the color the most frequently occurred.
+func TopColor(imgURL string) (rgba color.RGBA, err error) {
 	// call the image server
 	resp, err := http.Get(imgURL)
 	if err != nil {
@@ -194,7 +192,14 @@ func AvgColor(imgURL string) (avgColor color.Color, err error) {
 		}
 	}
 
-	log.Println(allColors)
+	// Not great to do a type assertion here but easiest way to
+	// give the client 8 bit values without bit fiddling
+	rgba, ok := p[topColor].(color.RGBA)
+	if !ok {
+		err = errors.New("can't assert to color.RGBA")
+		return
+	}
 
-	return p[topColor], nil
+	// success!
+	return
 }
