@@ -25,13 +25,15 @@ func main() {
 		}
 
 		go func() {
-			c, err := wikimg.TopColor(imgURL)
+			counts, err := wikimg.TopColors(imgURL)
 			if err != nil {
 				fmt.Println(err)
-			} else {
-				fmt.Printf("#%02x%02x%02x\n", c.R, c.G, c.B)
-				fmt.Printf("%v\n\n", imgURL)
 			}
+			fmt.Println(imgURL)
+			for k, v := range counts {
+				fmt.Println(k, v.Hex)
+			}
+			fmt.Println()
 		}()
 	}
 

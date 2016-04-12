@@ -6,12 +6,14 @@ package wikimg
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/color/palette"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 
 	// We define which image formats we support by importing
@@ -147,9 +149,42 @@ func (p *Puller) Next() (string, error) {
 	return p.qr.Query.AllImages[p.i].URL, nil
 }
 
+// ColorCount is one of the elements returned from a call to TopColors
+type ColorCount struct {
+	// Count is the number of times this color appeared
+	Count int
+	// Hex is the hex string of this color
+	Hex string
+	// Color is the original color.RGBA value from the standard
+	// image library
+	Color color.RGBA
+}
+
+/// Implement sort.Interface for a slice of ColorCount values
+
+// ColorCounts is a slice of ColorCount values
+type ColorCounts []ColorCount
+
+// Len returns the number of elements in this slice
+func (cc ColorCounts) Len() int {
+	return len(cc)
+}
+
+// Less returns whether the element at i has a Count value *greater than* the
+// one at j, because we want to sort from most counts to least counts
+func (cc ColorCounts) Less(i, j int) bool {
+	return cc[i].Count > cc[j].Count
+}
+
+// Swap swaps elements with indexes i and j
+func (cc ColorCounts) Swap(i, j int) {
+	cc[i], cc[j] = cc[j], cc[i]
+}
+
 // TopColor downloads the image at imgURL and maps every pixel to a 256
-// color palette, returning the color the most frequently occurred.
-func TopColor(imgURL string) (rgba color.RGBA, err error) {
+// color palette, return a slice of ColorCounts ordered from most frequent
+// to least
+func TopColors(imgURL string) (counts ColorCounts, err error) {
 	// call the image server
 	resp, err := http.Get(imgURL)
 	if err != nil {
@@ -169,10 +204,6 @@ func TopColor(imgURL string) (rgba color.RGBA, err error) {
 	// Save a count of all mapped colors we encounter
 	allColors := map[int]int{}
 
-	// The current top color
-	topColor := 0
-	topColorCount := 0
-
 	// Iterate through every pixel and increment total values
 	rect := img.Bounds()
 	for x := 0; x < rect.Dx(); x++ {
@@ -183,22 +214,29 @@ func TopColor(imgURL string) (rgba color.RGBA, err error) {
 
 			// Increment the count of this color
 			allColors[i]++
-
-			// Update the new top color if needed
-			if allColors[i] > topColorCount {
-				topColor = i
-				topColorCount = allColors[i]
-			}
 		}
 	}
 
-	// Not great to do a type assertion here but easiest way to
-	// give the client 8 bit values without bit fiddling
-	rgba, ok := p[topColor].(color.RGBA)
-	if !ok {
-		err = errors.New("can't assert to color.RGBA")
-		return
+	// Add each value to our list of counts
+	for k, v := range allColors {
+		// Not great to do a type assertion here but easiest way to
+		// give the client 8 bit values without bit fiddling
+		rgba, ok := p[k].(color.RGBA)
+		if !ok {
+			err = errors.New("can't assert to color.RGBA")
+			return
+		}
+
+		counts = append(counts,
+			ColorCount{
+				Count: v,
+				Color: rgba,
+				Hex:   fmt.Sprintf("#%02x%02x%02x", rgba.R, rgba.G, rgba.B),
+			},
+		)
 	}
+
+	sort.Sort(counts)
 
 	// success!
 	return
