@@ -1,3 +1,5 @@
+// Package wikimg provides an interface to pull the latest images
+// from Wikimedia Commons https://commons.wikimedia.org
 package wikimg
 
 import (
