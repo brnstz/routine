@@ -25,7 +25,7 @@ func getImages(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		imgURL, err := p.Next()
-		if err == wikimg.EndofResults {
+		if err == wikimg.EndOfResults {
 			break
 
 		} else if err != nil {

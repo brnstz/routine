@@ -11,7 +11,8 @@ import (
 	"strconv"
 )
 
-var EndofResults = errors.New("end of results")
+// EndOfResults is returned by Next when no more results are available
+var EndOfResults = errors.New("end of results")
 
 const (
 	queryURL = "https://commons.wikimedia.org/w/api.php"
@@ -63,10 +64,12 @@ func NewPuller(max int) *Puller {
 	}
 }
 
+// Next returns the next most recent image URL. If no more results are
+// available EndOfResults is returned as an error.
 func (p *Puller) Next() (string, error) {
 	// If we've exceeded that max we want to get, then stop
-	if p.count > p.max {
-		return "", EndofResults
+	if p.count >= p.max {
+		return "", EndOfResults
 	}
 
 	// If we're within the length of our current request,
@@ -109,13 +112,13 @@ func (p *Puller) Next() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer resp.Body.Close()
 
 	// read the contents of the response as bytes
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
-	resp.Body.Close()
 
 	// parse the bytes into a struct
 	p.qr = &queryResp{}
@@ -124,9 +127,9 @@ func (p *Puller) Next() (string, error) {
 		return "", err
 	}
 
-	// If there's no more images, then return false
+	// If there's no more images, then return
 	if len(p.qr.Query.AllImages) < 1 {
-		return "", EndofResults
+		return "", EndOfResults
 	}
 
 	// Return first value of the new request
