@@ -1,14 +1,25 @@
 // Package wikimg provides an interface to pull the latest images
-// from Wikimedia Commons https://commons.wikimedia.org
+// from Wikimedia Commons https://commons.wikimedia.org and a function
+// for determining the average color of images
 package wikimg
 
 import (
 	"encoding/json"
 	"errors"
+	"image"
+	"image/color"
+	"image/color/palette"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
+
+	// We define which image formats we support by importing
+	// decoder packages
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 )
 
 // EndOfResults is returned by Next when no more results are available
@@ -30,7 +41,7 @@ type queryResp struct {
 		AIContinue string
 	}
 
-	// The actual results
+	// Query contains the actual results
 	Query struct {
 		AllImages []struct {
 			URL string
@@ -107,20 +118,20 @@ func (p *Puller) Next() (string, error) {
 		params.Set("aicontinue", p.qr.Continue.AIContinue)
 	}
 
-	// call the wikimedia API
+	// Call the wikimedia API
 	resp, err := http.Get(queryURL + "?" + params.Encode())
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
-	// read the contents of the response as bytes
+	// Read the contents of the response as bytes
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
 
-	// parse the bytes into a struct
+	// Parse the bytes into a struct
 	p.qr = &queryResp{}
 	err = json.Unmarshal(b, p.qr)
 	if err != nil {
@@ -135,4 +146,55 @@ func (p *Puller) Next() (string, error) {
 	// Return first value of the new request
 	p.count++
 	return p.qr.Query.AllImages[p.i].URL, nil
+}
+
+// AvgColor returns the average color.Color for the image located at imgURL.
+// This is definitely not optimized and may not even be correct. I just hacked
+// this together. We support png, jpeg and gif images.
+func AvgColor(imgURL string) (avgColor color.Color, err error) {
+	// call the image server
+	resp, err := http.Get(imgURL)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	// Decode into an object
+	img, _, err := image.Decode(resp.Body)
+	if err != nil {
+		return
+	}
+
+	// Use the Plan9 256 color palette
+	p := color.Palette(palette.Plan9)
+
+	// Save a count of all mapped colors we encounter
+	allColors := map[int]int{}
+
+	// The current top color
+	topColor := 0
+	topColorCount := 0
+
+	// Iterate through every pixel and increment total values
+	rect := img.Bounds()
+	for x := 0; x < rect.Dx(); x++ {
+		for y := 0; y < rect.Dy(); y++ {
+			// i is the index in the palette which this
+			// actual color maps to
+			i := p.Index(img.At(x, y))
+
+			// Increment the count of this color
+			allColors[i]++
+
+			// Update the new top color if needed
+			if allColors[i] > topColorCount {
+				topColor = i
+				topColorCount = allColors[i]
+			}
+		}
+	}
+
+	log.Println(allColors)
+
+	return p[topColor], nil
 }
