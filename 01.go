@@ -30,12 +30,14 @@ func main() {
 		}
 
 		go func() {
+			// Get the top color in this image
 			color, err := wikimg.OneColor(imgURL)
 			if err != nil {
 				log.Println(err)
 				return
 			}
 
+			// Print color to the terminal
 			fmt.Printf(fmtSpec, color.XTermCode, "")
 		}()
 	}
