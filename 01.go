@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/brnstz/routine/wikimg"
-	"github.com/mgutz/ansi"
+)
+
+var (
+	// print a blank line with the given 256 ANSI color
+	fmtSpec = "\x1b[30;48;5;%dm%-80s\x1b[0m\n"
 )
 
 func main() {
@@ -21,24 +24,19 @@ func main() {
 			break
 
 		} else if err != nil {
-			log.Println("retrieval error with %v: %v", imgURL, err)
+			// Log error and continue getting URLs
+			log.Println(err)
 			continue
 		}
 
 		go func() {
-			counts, err := wikimg.TopColors(imgURL)
+			color, err := wikimg.OneColor(imgURL)
 			if err != nil {
-				fmt.Println("processing error with %v: %v", imgURL, err)
+				log.Println(err)
+				return
 			}
 
-			fmt.Println(
-				ansi.Color("HELLO",
-					fmt.Sprintf("black:%d", counts[0].XTermCode),
-				),
-			)
-
+			fmt.Printf(fmtSpec, color.XTermCode, "")
 		}()
 	}
-
-	time.Sleep(1 * time.Hour)
 }

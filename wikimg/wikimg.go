@@ -1,6 +1,6 @@
 // Package wikimg provides an interface to pull the latest images
 // from Wikimedia Commons https://commons.wikimedia.org and a function
-// for determining the average color of images
+// to determine the top colors from a 256 color palette
 package wikimg
 
 import (
@@ -10,7 +10,6 @@ import (
 	"image"
 	"image/color"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"sort"
@@ -23,8 +22,10 @@ import (
 	_ "image/png"
 )
 
-// EndOfResults is returned by Next when no more results are available
-var EndOfResults = errors.New("end of results")
+var (
+	// EndOfResults is returned by Next when no more results are available
+	EndOfResults = errors.New("end of results")
+)
 
 const (
 	queryURL = "https://commons.wikimedia.org/w/api.php"
@@ -148,7 +149,8 @@ func (p *Puller) Next() (string, error) {
 
 // ColorCount is one of the elements returned from a call to TopColors()
 type ColorCount struct {
-	// Count is the number of times this color appeared
+	// Count is the number of pixels that mapped to this color in
+	// the palette
 	Count int
 
 	// Hex is the hex string of this color
@@ -187,10 +189,34 @@ func (cc ColorCounts) Swap(i, j int) {
 	cc[i], cc[j] = cc[j], cc[i]
 }
 
+// OneColor returns the most frequent chromatic color, or if the image
+// is grayscale, returns the top grayscale color
+func OneColor(imgURL string) (cc ColorCount, err error) {
+	// Get all colors sorted from most to least frequent
+	colors, err := TopColors(imgURL)
+	if err != nil {
+		return
+	}
+
+	// Find the first non gray color
+	for _, cc = range colors {
+		if !cc.Gray {
+			return
+		}
+	}
+
+	// If no non-gray colors, return the first one
+	if len(colors) > 0 {
+		cc = colors[0]
+	}
+
+	return
+}
+
 // TopColors downloads the image at imgURL and maps every pixel to a 256 color
 // palette, return a slice of ColorCounts ordered from most frequent to least
 func TopColors(imgURL string) (counts ColorCounts, err error) {
-	// call the image server
+	// Call the image server
 	resp, err := http.Get(imgURL)
 	if err != nil {
 		return
@@ -246,7 +272,6 @@ func TopColors(imgURL string) (counts ColorCounts, err error) {
 
 	sort.Sort(counts)
 
-	log.Println("done with", imgURL)
 	// success!
 	return
 }
