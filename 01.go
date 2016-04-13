@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 
@@ -13,9 +14,14 @@ var (
 )
 
 func main() {
-	// Let's start simple and pull 10 images
-	p := wikimg.NewPuller(10)
+	var max int
+	flag.IntVar(&max, "max", 10, "maximum number of images to retrieve")
+	flag.Parse()
 
+	// Create a new image puller with our max
+	p := wikimg.NewPuller(max)
+
+	// Loop to retrieve more images
 	for {
 		imgURL, err := p.Next()
 
