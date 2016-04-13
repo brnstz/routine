@@ -67,5 +67,4 @@ func main() {
 	}
 	close(imgURLs)
 	wg.Wait()
-
 }
