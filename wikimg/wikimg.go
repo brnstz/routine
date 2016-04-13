@@ -229,7 +229,7 @@ func TopColors(imgURL string) (counts ColorCounts, err error) {
 		return
 	}
 
-	// Use the XTerm256 256 color palette
+	// Use the XTerm256 color palette
 	p := color.Palette(XTerm256)
 
 	// Save a count of all mapped colors we encounter
