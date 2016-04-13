@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/brnstz/routine/wikimg"
+	"github.com/mgutz/ansi"
 )
 
 func main() {
@@ -19,21 +21,22 @@ func main() {
 			break
 
 		} else if err != nil {
-			//
-			fmt.Println(err)
+			log.Println("retrieval error with %v: %v", imgURL, err)
 			continue
 		}
 
 		go func() {
 			counts, err := wikimg.TopColors(imgURL)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("processing error with %v: %v", imgURL, err)
 			}
-			fmt.Println(imgURL)
-			for k, v := range counts {
-				fmt.Println(k, v.Hex)
-			}
-			fmt.Println()
+
+			fmt.Println(
+				ansi.Color("HELLO",
+					fmt.Sprintf("black:%d", counts[0].XTermCode),
+				),
+			)
+
 		}()
 	}
 

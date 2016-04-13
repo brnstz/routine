@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/color/palette"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"sort"
@@ -150,8 +150,13 @@ func (p *Puller) Next() (string, error) {
 type ColorCount struct {
 	// Count is the number of times this color appeared
 	Count int
+
 	// Hex is the hex string of this color
 	Hex string
+
+	// XTermCode is the xterm256 color code of this color
+	XTermCode int
+
 	// Color is the original color.RGBA value from the standard
 	// image library
 	Color color.RGBA
@@ -198,8 +203,8 @@ func TopColors(imgURL string) (counts ColorCounts, err error) {
 		return
 	}
 
-	// Use the Plan9 256 color palette
-	p := color.Palette(palette.Plan9)
+	// Use the XTerm256 256 color palette
+	p := color.Palette(XTerm256)
 
 	// Save a count of all mapped colors we encounter
 	allColors := map[int]int{}
@@ -227,18 +232,21 @@ func TopColors(imgURL string) (counts ColorCounts, err error) {
 			return
 		}
 
+		hex := fmt.Sprintf("#%02x%02x%02x", rgba.R, rgba.G, rgba.B)
 		counts = append(counts,
 			ColorCount{
-				Count: v,
-				Color: rgba,
-				Hex:   fmt.Sprintf("#%02x%02x%02x", rgba.R, rgba.G, rgba.B),
-				Gray:  rgba.R == rgba.G && rgba.G == rgba.B,
+				Count:     v,
+				Color:     rgba,
+				Hex:       hex,
+				XTermCode: k,
+				Gray:      rgba.R == rgba.G && rgba.G == rgba.B,
 			},
 		)
 	}
 
 	sort.Sort(counts)
 
+	log.Println("done with", imgURL)
 	// success!
 	return
 }
