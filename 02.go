@@ -14,15 +14,35 @@ var (
 )
 
 func main() {
-	var max, workers int
-	var imgURLs chan string
+	var max, workers, buffer int
 
 	flag.IntVar(&max, "max", 10, "maximum number of images to retrieve")
 	flag.IntVar(&workers, "workers", 5, "number of background workers")
+	flag.IntVar(&buffer, "buffer", 0, "buffer size of image channel")
 	flag.Parse()
 
 	// Create a new image puller with our max
 	p := wikimg.NewPuller(max)
+
+	// Create a buffered channel for communicating between image
+	// puller loop and workers
+	imgURLs := make(chan string, buffer)
+
+	for i := 0; i < workers; i++ {
+		go func() {
+			for imgURL := range imgURLs {
+				// Get the top color in this image
+				color, err := wikimg.OneColor(imgURL)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+
+				// Print color to the terminal
+				fmt.Printf(fmtSpec, color.XTermCode, "")
+			}
+		}()
+	}
 
 	// Loop to retrieve more images
 	for {
@@ -41,19 +61,4 @@ func main() {
 		imgURLs <- imgURL
 	}
 
-	for i := 0; i < workers; i++ {
-		go func() {
-			for imgURL := range imgURLs {
-				// Get the top color in this image
-				color, err := wikimg.OneColor(imgURL)
-				if err != nil {
-					log.Println(err)
-					continue
-				}
-
-				// Print color to the terminal
-				fmt.Printf(fmtSpec, color.XTermCode, "")
-			}
-		}()
-	}
 }
