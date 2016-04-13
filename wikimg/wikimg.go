@@ -62,9 +62,6 @@ type Puller struct {
 
 	// max is the maximum number of images we want to collect
 	max int
-
-	// err is the most recent error which can be returned by ImageURL()
-	err error
 }
 
 // NewPuller creates an image puller that pulls up to max of the most
@@ -149,7 +146,7 @@ func (p *Puller) Next() (string, error) {
 	return p.qr.Query.AllImages[p.i].URL, nil
 }
 
-// ColorCount is one of the elements returned from a call to TopColors
+// ColorCount is one of the elements returned from a call to TopColors()
 type ColorCount struct {
 	// Count is the number of times this color appeared
 	Count int
@@ -158,6 +155,10 @@ type ColorCount struct {
 	// Color is the original color.RGBA value from the standard
 	// image library
 	Color color.RGBA
+
+	// Gray is true if the color is a shade of gray, including black
+	// and white (i.e., Color.R == Color.G == Color.B)
+	Gray bool
 }
 
 /// Implement sort.Interface for a slice of ColorCount values
@@ -181,9 +182,8 @@ func (cc ColorCounts) Swap(i, j int) {
 	cc[i], cc[j] = cc[j], cc[i]
 }
 
-// TopColor downloads the image at imgURL and maps every pixel to a 256
-// color palette, return a slice of ColorCounts ordered from most frequent
-// to least
+// TopColors downloads the image at imgURL and maps every pixel to a 256 color
+// palette, return a slice of ColorCounts ordered from most frequent to least
 func TopColors(imgURL string) (counts ColorCounts, err error) {
 	// call the image server
 	resp, err := http.Get(imgURL)
@@ -232,6 +232,7 @@ func TopColors(imgURL string) (counts ColorCounts, err error) {
 				Count: v,
 				Color: rgba,
 				Hex:   fmt.Sprintf("#%02x%02x%02x", rgba.R, rgba.G, rgba.B),
+				Gray:  rgba.R == rgba.G && rgba.G == rgba.B,
 			},
 		)
 	}
