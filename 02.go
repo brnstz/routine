@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/brnstz/routine/wikimg"
 )
@@ -15,9 +14,11 @@ var (
 )
 
 func main() {
-	var max int
-	var count int
+	var max, workers int
+	var imgURLs chan string
+
 	flag.IntVar(&max, "max", 10, "maximum number of images to retrieve")
+	flag.IntVar(&workers, "workers", 5, "number of background workers")
 	flag.Parse()
 
 	// Create a new image puller with our max
@@ -37,24 +38,22 @@ func main() {
 			continue
 		}
 
+		imgURLs <- imgURL
+	}
+
+	for i := 0; i < workers; i++ {
 		go func() {
-			// Get the top color in this image
-			color, err := wikimg.OneColor(imgURL)
-			if err != nil {
-				count++
-				log.Println(err)
-				return
+			for imgURL := range imgURLs {
+				// Get the top color in this image
+				color, err := wikimg.OneColor(imgURL)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+
+				// Print color to the terminal
+				fmt.Printf(fmtSpec, color.XTermCode, "")
 			}
-
-			// Print color to the terminal
-			fmt.Printf(fmtSpec, color.XTermCode, "")
-			count++
 		}()
-
-		for count < max {
-			log.Printf("waiting %d < %d", count, max)
-			time.Sleep(10 * time.Second)
-		}
-
 	}
 }
