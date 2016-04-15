@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	// print a blank line with the given 256 ANSI color
+	// Print a blank line with the given 256 ANSI color
 	fmtSpec = "\x1b[30;48;5;%dm%-80s\x1b[0m\n"
 )
 

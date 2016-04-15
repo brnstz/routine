@@ -1,5 +1,5 @@
 // Package wikimg provides an interface to pull the latest images
-// from Wikimedia Commons https://commons.wikimedia.org and a function
+// from Wikimedia Commons https://commons.wikimedia.org and functions
 // to determine the top colors from a 256 color palette
 package wikimg
 
