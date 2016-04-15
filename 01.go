@@ -16,7 +16,7 @@ var (
 func main() {
 	var max int
 
-	flag.IntVar(&max, "max", 10, "maximum number of images to retrieve")
+	flag.IntVar(&max, "max", 100, "maximum number of images to retrieve")
 	flag.Parse()
 
 	// Create a new image puller with our max

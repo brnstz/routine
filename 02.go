@@ -10,16 +10,16 @@ import (
 )
 
 var (
-	// print a blank line with the given 256 ANSI color
+	// Print a blank line with the given 256 ANSI color
 	fmtSpec = "\x1b[30;48;5;%dm%-80s\x1b[0m\n"
 )
 
 func main() {
 	var max, workers, buffer int
 
-	flag.IntVar(&max, "max", 10, "maximum number of images to retrieve")
-	flag.IntVar(&workers, "workers", 5, "number of background workers")
-	flag.IntVar(&buffer, "buffer", 0, "buffer size of image channel")
+	flag.IntVar(&max, "max", 100, "maximum number of images to retrieve")
+	flag.IntVar(&workers, "workers", 50, "number of background workers")
+	flag.IntVar(&buffer, "buffer", 10000, "buffer size of image URL channel")
 	flag.Parse()
 
 	// Create a new image puller with our max
@@ -35,6 +35,8 @@ func main() {
 		wg.Add(1)
 		go func() {
 			for imgURL := range imgURLs {
+				log.Println("retrieving", imgURL)
+
 				// Get the top color in this image
 				color, err := wikimg.OneColor(imgURL)
 				if err != nil {
@@ -63,7 +65,9 @@ func main() {
 			continue
 		}
 
+		log.Println("sending", imgURL)
 		imgURLs <- imgURL
+		log.Println("sent", imgURL)
 	}
 	close(imgURLs)
 	wg.Wait()
