@@ -1,6 +1,6 @@
-// Package wikimg provides an interface to pull the latest images
-// from Wikimedia Commons https://commons.wikimedia.org and functions
-// to determine the top colors from a 256 color palette
+// Package wikimg can pull the latest image URLs from Wikimedia Commons
+// https://commons.wikimedia.org and map image colors to an xterm256 color
+// palette.
 package wikimg
 
 import (
@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 
 	// We define which image formats we support by importing
@@ -28,8 +27,11 @@ var (
 )
 
 const (
+	// queryURL is the API we are querying
 	queryURL = "https://commons.wikimedia.org/w/api.php"
-	apiMax   = 500
+
+	// apiMax is the max results we can request from the API at one time
+	apiMax = 500
 )
 
 // queryResp mirrors the JSON structure returned by queryURL, specifying only
@@ -51,6 +53,8 @@ type queryResp struct {
 	}
 }
 
+// Puller is an image puller that retrieves the most recent image URLs that
+// have been uploaded to Wikimedia Commons https://commons.wikimedia.org
 type Puller struct {
 	// qr is the most recent response from the API
 	qr *queryResp
@@ -65,9 +69,8 @@ type Puller struct {
 	max int
 }
 
-// NewPuller creates an image puller that pulls up to max of the most
-// recent image URLs that have been uploaded to Wikimedia Commons
-// https://commons.wikimedia.org
+// NewPuller creates a puller that can return at most max images
+// when calls to Next() are made
 func NewPuller(max int) *Puller {
 	return &Puller{
 		max: max,
@@ -147,75 +150,13 @@ func (p *Puller) Next() (string, error) {
 	return p.qr.Query.AllImages[p.i].URL, nil
 }
 
-// ColorCount is one of the elements returned from a call to TopColors()
-type ColorCount struct {
-	// Count is the number of pixels that mapped to this color in
-	// the palette
-	Count int
+// FirstColor returns the first non-gray color in the image. A gray color
+// is one that, when mapped to an xterm256 palette, has the same value
+// for red, green and blue. Both the xterm256color (an integer between
+// 0-255) and a hex string (e.g., "#bb00cc") is returned.
+func FirstColor(imgURL string) (xterm256Color int, hex string, err error) {
+	var rgba color.RGBA
 
-	// Hex is the hex string of this color
-	Hex string
-
-	// XTermCode is the xterm256 color code of this color
-	XTermCode int
-
-	// Color is the original color.RGBA value from the standard
-	// image library
-	Color color.RGBA
-
-	// Gray is true if the color is a shade of gray, including black
-	// and white (i.e., Color.R == Color.G == Color.B)
-	Gray bool
-}
-
-/// Implement sort.Interface for a slice of ColorCount values
-
-// ColorCounts is a slice of ColorCount values
-type ColorCounts []ColorCount
-
-// Len returns the number of elements in this slice
-func (cc ColorCounts) Len() int {
-	return len(cc)
-}
-
-// Less returns whether the element at i has a Count value *greater than* the
-// one at j, because we want to sort from most counts to least counts
-func (cc ColorCounts) Less(i, j int) bool {
-	return cc[i].Count > cc[j].Count
-}
-
-// Swap swaps elements with indexes i and j
-func (cc ColorCounts) Swap(i, j int) {
-	cc[i], cc[j] = cc[j], cc[i]
-}
-
-// OneColor returns the most frequent chromatic color, or if the image
-// is grayscale, returns the top grayscale color
-func OneColor(imgURL string) (cc ColorCount, err error) {
-	// Get all colors sorted from most to least frequent
-	colors, err := TopColors(imgURL)
-	if err != nil {
-		return
-	}
-
-	// Find the first non gray color
-	for _, cc = range colors {
-		if !cc.Gray {
-			return
-		}
-	}
-
-	// If no non-gray colors, return the first one
-	if len(colors) > 0 {
-		cc = colors[0]
-	}
-
-	return
-}
-
-// TopColors downloads the image at imgURL and maps every pixel to a 256 color
-// palette, return a slice of ColorCounts ordered from most frequent to least
-func TopColors(imgURL string) (counts ColorCounts, err error) {
 	// Call the image server
 	resp, err := http.Get(imgURL)
 	if err != nil {
@@ -229,49 +170,41 @@ func TopColors(imgURL string) (counts ColorCounts, err error) {
 		return
 	}
 
-	// Use the XTerm256 color palette
+	// Use our XTerm256 as a color.Palette so we can map the colors of the
+	// image to our palette.
 	p := color.Palette(XTerm256)
 
-	// Save a count of all mapped colors we encounter
-	allColors := map[int]int{}
-
-	// Iterate through every pixel and increment total values
+	// Iterate through every pixel and try to find a color. If we don't
+	// find a color (i.e., the image is grayscale) we'll default to the last
+	// pixel in the image.
 	rect := img.Bounds()
 	for x := 0; x < rect.Dx(); x++ {
 		for y := 0; y < rect.Dy(); y++ {
-			// i is the index in the palette which this
-			// actual color maps to
-			i := p.Index(img.At(x, y))
 
-			// Increment the count of this color
-			allColors[i]++
+			// xterm256Color is the index in the palette which this
+			// actual color maps to. It is also (by design) the
+			// xterm256 value that maps to this color.
+			xterm256Color = p.Index(img.At(x, y))
+
+			// Get the color.RGBA value for this color. Not great to do a type
+			// assertion here but easiest way to get 8-bit values without bit
+			// fiddling.
+			rgba, ok := p[xterm256Color].(color.RGBA)
+			if !ok {
+				err = errors.New("can't assert to color.RGBA")
+				return
+			}
+
+			// If any of the RGB values differ, it's a color, so we can
+			// stop.
+			if !(rgba.R == rgba.G && rgba.G == rgba.B) {
+				break
+			}
 		}
 	}
 
-	// Add each value to our list of counts
-	for k, v := range allColors {
-		// Not great to do a type assertion here but easiest way to
-		// give the client 8 bit values without bit fiddling
-		rgba, ok := p[k].(color.RGBA)
-		if !ok {
-			err = errors.New("can't assert to color.RGBA")
-			return
-		}
+	// Compute the hex value of the color
+	hex = fmt.Sprintf("#%02x%02x%02x", rgba.R, rgba.G, rgba.B)
 
-		hex := fmt.Sprintf("#%02x%02x%02x", rgba.R, rgba.G, rgba.B)
-		counts = append(counts,
-			ColorCount{
-				Count:     v,
-				Color:     rgba,
-				Hex:       hex,
-				XTermCode: k,
-				Gray:      rgba.R == rgba.G && rgba.G == rgba.B,
-			},
-		)
-	}
-
-	sort.Sort(counts)
-
-	// success!
 	return
 }
