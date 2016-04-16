@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 
 	"github.com/brnstz/routine/wikimg"
 )
@@ -60,8 +59,8 @@ func main() {
 			break
 
 		} else if err != nil {
-			// Log error and continue getting URLs
-			log.Println(err)
+			// Send error on err channel and continue
+			errs <- err
 			continue
 		}
 
