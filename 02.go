@@ -18,7 +18,7 @@ func main() {
 	var max, workers, buffer int
 
 	flag.IntVar(&max, "max", 100, "maximum number of images to retrieve")
-	flag.IntVar(&workers, "workers", 50, "number of background workers")
+	flag.IntVar(&workers, "workers", 25, "number of background workers")
 	flag.IntVar(&buffer, "buffer", 10000, "buffer size of image URL channel")
 	flag.Parse()
 
@@ -35,10 +35,9 @@ func main() {
 		wg.Add(1)
 		go func() {
 			for imgURL := range imgURLs {
-				log.Println("retrieving", imgURL)
 
 				// Get the top color in this image
-				color, err := wikimg.OneColor(imgURL)
+				color, err := wikimg.FirstColor(imgURL)
 				if err != nil {
 					log.Println(err)
 					continue
@@ -65,9 +64,7 @@ func main() {
 			continue
 		}
 
-		log.Println("sending", imgURL)
 		imgURLs <- imgURL
-		log.Println("sent", imgURL)
 	}
 	close(imgURLs)
 	wg.Wait()

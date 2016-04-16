@@ -37,15 +37,15 @@ func main() {
 		}
 
 		go func() {
-			// Get the top color in this image
-			color, err := wikimg.OneColor(imgURL)
+			// Get the first color in this image
+			xtermColor, _, err := wikimg.FirstColor(imgURL)
 			if err != nil {
 				log.Println(err)
 				return
 			}
 
 			// Print color to the terminal
-			fmt.Printf(fmtSpec, color.XTermCode, "")
+			fmt.Printf(fmtSpec, xtermColor, "")
 		}()
 	}
 }
