@@ -17,7 +17,7 @@ func main() {
 
 	flag.IntVar(&max, "max", 100, "maximum number of images to retrieve")
 	flag.IntVar(&workers, "workers", 50, "number of background workers")
-	flag.IntVar(&buffer, "buffer", 10000, "buffer size of buffered channels")
+	flag.IntVar(&buffer, "buffer", 10000, "size of buffered channels")
 	flag.Parse()
 
 	// Create a new image puller with our max
