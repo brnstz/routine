@@ -38,14 +38,14 @@ func main() {
 
 		go func() {
 			// Get the first color in this image
-			xtermColor, _, err := wikimg.FirstColor(imgURL)
+			color, _, err := wikimg.FirstColor(imgURL)
 			if err != nil {
 				log.Println(err)
 				return
 			}
 
 			// Print color to the terminal
-			fmt.Printf(fmtSpec, xtermColor, "")
+			fmt.Printf(fmtSpec, color, "")
 		}()
 	}
 }

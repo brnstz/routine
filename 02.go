@@ -36,15 +36,15 @@ func main() {
 		go func() {
 			for imgURL := range imgURLs {
 
-				// Get the top color in this image
-				color, err := wikimg.FirstColor(imgURL)
+				// Get the first color in this image
+				color, _, err := wikimg.FirstColor(imgURL)
 				if err != nil {
 					log.Println(err)
 					continue
 				}
 
 				// Print color to the terminal
-				fmt.Printf(fmtSpec, color.XTermCode, "")
+				fmt.Printf(fmtSpec, color, "")
 			}
 			wg.Done()
 		}()
