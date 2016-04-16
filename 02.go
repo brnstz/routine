@@ -29,10 +29,14 @@ func main() {
 	// puller loop and workers
 	imgURLs := make(chan string, buffer)
 
+	// Use wg to wait for goroutines to complete
 	wg := sync.WaitGroup{}
 
 	for i := 0; i < workers; i++ {
+		// Tell wg that we're adding something to wait for. Be sure to do this
+		// outside the go call.
 		wg.Add(1)
+
 		go func() {
 			for imgURL := range imgURLs {
 
@@ -46,6 +50,9 @@ func main() {
 				// Print color to the terminal
 				fmt.Printf(fmtSpec, color, "")
 			}
+
+			// Once there is nothing else in imgURLs, this goroutine
+			// is finished and can tell that to wg.
 			wg.Done()
 		}()
 	}
@@ -64,8 +71,15 @@ func main() {
 			continue
 		}
 
+		// Send this imgURL to the channel
 		imgURLs <- imgURL
 	}
+
+	// There are no more imgURLs to send, close the channel. This
+	// will cause the range in the goroutines to complete, once any
+	// buffered entries are exhausted.
 	close(imgURLs)
+
+	// Wait until all goroutines call wg.Done()
 	wg.Wait()
 }
