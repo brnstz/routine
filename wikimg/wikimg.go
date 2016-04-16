@@ -159,8 +159,6 @@ func (p *Puller) Next() (string, error) {
 // it's gray. Both the xterm256color (an integer between 0-255) and a hex
 // string (e.g., "#bb00cc") is returned.
 func FirstColor(imgURL string) (xterm256Color int, hex string, err error) {
-	var rgba color.RGBA
-
 	// Call the image server
 	resp, err := http.Get(imgURL)
 	if err != nil {
@@ -199,6 +197,9 @@ func FirstColor(imgURL string) (xterm256Color int, hex string, err error) {
 				return
 			}
 
+			// Compute the hex value of the color
+			hex = fmt.Sprintf("#%02x%02x%02x", rgba.R, rgba.G, rgba.B)
+
 			// If any of the RGB values differ, it's a color, so we can
 			// stop.
 			if !(rgba.R == rgba.G && rgba.G == rgba.B) {
@@ -206,9 +207,6 @@ func FirstColor(imgURL string) (xterm256Color int, hex string, err error) {
 			}
 		}
 	}
-
-	// Compute the hex value of the color
-	hex = fmt.Sprintf("#%02x%02x%02x", rgba.R, rgba.G, rgba.B)
 
 	return
 }
