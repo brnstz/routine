@@ -156,9 +156,9 @@ func (p *Puller) Next() (string, error) {
 // We iterate through pixels starting with 0,0 (top left) and move to the
 // bottom right one by one. In the worst case (a grayscale image), we iterate
 // through every pixel, give up, and return the final pixel color even though
-// it's gray. Both the xterm256color (an integer between 0-255) and a hex
+// it's gray. Both the xtermColor (an integer between 0-255) and a hex
 // string (e.g., "#bb00cc") is returned.
-func FirstColor(imgURL string) (xterm256Color int, hex string, err error) {
+func FirstColor(imgURL string) (xtermColor int, hex string, err error) {
 	// Call the image server
 	resp, err := http.Get(imgURL)
 	if err != nil {
@@ -183,15 +183,15 @@ func FirstColor(imgURL string) (xterm256Color int, hex string, err error) {
 	for x := 0; x < rect.Dx(); x++ {
 		for y := 0; y < rect.Dy(); y++ {
 
-			// xterm256Color is the index in the palette which this
+			// xtermColor is the index in the palette which this
 			// actual color maps to. It is also (by design) the
 			// xterm256 value that maps to this color.
-			xterm256Color = p.Index(img.At(x, y))
+			xtermColor = p.Index(img.At(x, y))
 
 			// Get the color.RGBA value for this color. Not great to do a type
 			// assertion here but easiest way to get 8-bit values without bit
 			// fiddling.
-			rgba, ok := p[xterm256Color].(color.RGBA)
+			rgba, ok := p[xtermColor].(color.RGBA)
 			if !ok {
 				err = errors.New("can't assert to color.RGBA")
 				return
