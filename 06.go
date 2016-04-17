@@ -65,9 +65,11 @@ func main() {
 		// Create a new image puller with our max
 		p := wikimg.NewPuller(max)
 
-		// Create a context
+		// Create a context with a 20 second timeout
 		ctx, _ := context.WithTimeout(context.Background(), time.Second*20)
 
+		// Set puller's Cancel channel, so it will be closed when the
+		// context times out
 		p.Cancel = ctx.Done()
 
 		// Create a channel for receiving responses specific
