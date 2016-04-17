@@ -29,7 +29,7 @@ func main() {
 	var max, workers, buffer, port int
 
 	flag.IntVar(&max, "max", 100, "maximum number of images per request")
-	flag.IntVar(&workers, "workers", 50, "number of background workers")
+	flag.IntVar(&workers, "workers", 25, "number of background workers")
 	flag.IntVar(&buffer, "buffer", 10000, "size of buffered channels")
 	flag.IntVar(&port, "port", 8000, "HTTP port to listen on")
 	flag.Parse()

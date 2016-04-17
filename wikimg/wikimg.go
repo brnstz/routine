@@ -225,10 +225,12 @@ func (p *Puller) FirstColor(imgURL string) (xtermColor int, hex string, err erro
 				select {
 
 				case <-p.Cancel:
+					// If p.Cancel has been closed, this will be triggered
 					err = Canceled
 					return
-				default:
 
+				default:
+					// Otherwise we'll just do nothing immediately
 				}
 			}
 
