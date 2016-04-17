@@ -15,6 +15,7 @@ var (
 )
 
 type imgRequest struct {
+	p         *wikimg.Puller
 	url       string
 	responses chan imgResponse
 }
@@ -28,7 +29,7 @@ func main() {
 	var max, workers, buffer, port int
 
 	flag.IntVar(&max, "max", 100, "maximum number of images per request")
-	flag.IntVar(&workers, "workers", 50, "number of background workers")
+	flag.IntVar(&workers, "workers", 25, "number of background workers")
 	flag.IntVar(&buffer, "buffer", 10000, "size of buffered channels")
 	flag.IntVar(&port, "port", 8000, "HTTP port to listen on")
 	flag.Parse()
@@ -42,11 +43,11 @@ func main() {
 			for req := range imgReqs {
 
 				// Get the first color in this image
-				_, color, err := wikimg.FirstColor(req.url)
+				_, hex, err := req.p.FirstColor(req.url)
 
 				// Create a response object
 				resp := imgResponse{
-					hex: color,
+					hex: hex,
 					err: err,
 				}
 
@@ -87,6 +88,7 @@ func main() {
 
 			// Create request and send on the global channel
 			imgReqs <- &imgRequest{
+				p:         p,
 				url:       imgURL,
 				responses: responses,
 			}

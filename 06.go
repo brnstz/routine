@@ -1,12 +1,13 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
+
+	"golang.org/x/net/context"
 
 	"github.com/brnstz/routine/wikimg"
 )
@@ -17,47 +18,22 @@ var (
 )
 
 type imgRequest struct {
+	p         *wikimg.Puller
 	url       string
 	responses chan imgResponse
+	ctx       context.Context
 }
 
 type imgResponse struct {
-	color int
-	hex   string
-	err   error
-}
-
-// firstColor is a local wrapper for wikimg.FirstColor with a configurable
-// timeout
-func firstColor(imgURL string, timeout time.Duration) (resp imgResponse) {
-	// Create local response channel of size 1
-	responses := make(chan imgResponse, 1)
-
-	go func() {
-		color, hex, err := wikimg.FirstColor(imgURL)
-		responses <- imgResponse{
-			color: color,
-			hex:   hex,
-			err:   err,
-		}
-	}()
-
-	// Select whichever one happens first
-	select {
-	case resp = <-responses:
-
-	case <-time.After(timeout):
-		resp.err = errors.New("timeout waiting for wikimg.FirstColor()")
-	}
-
-	return resp
+	hex string
+	err error
 }
 
 func main() {
 	var max, workers, buffer, port int
 
 	flag.IntVar(&max, "max", 100, "maximum number of images per request")
-	flag.IntVar(&workers, "workers", 50, "number of background workers")
+	flag.IntVar(&workers, "workers", 25, "number of background workers")
 	flag.IntVar(&buffer, "buffer", 10000, "size of buffered channels")
 	flag.IntVar(&port, "port", 8000, "HTTP port to listen on")
 	flag.Parse()
@@ -71,7 +47,13 @@ func main() {
 			for req := range imgReqs {
 
 				// Get the first color in this image
-				resp := firstColor(req.url, time.Second*30)
+				_, hex, err := req.p.FirstColor(req.url)
+
+				// Create a response object
+				resp := imgResponse{
+					hex: hex,
+					err: err,
+				}
 
 				// Send it back on our response channel
 				req.responses <- resp
@@ -82,6 +64,13 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Create a new image puller with our max
 		p := wikimg.NewPuller(max)
+
+		// Create a context with a 20 second timeout
+		ctx, _ := context.WithTimeout(context.Background(), time.Second*20)
+
+		// Set puller's Cancel channel, so it will be closed when the
+		// context times out
+		p.Cancel = ctx.Done()
 
 		// Create a channel for receiving responses specific
 		// to this HTTP request
@@ -110,8 +99,10 @@ func main() {
 
 			// Create request and send on the global channel
 			imgReqs <- &imgRequest{
+				p:         p,
 				url:       imgURL,
 				responses: responses,
+				ctx:       ctx,
 			}
 		}
 
