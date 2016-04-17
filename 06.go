@@ -1,12 +1,13 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
+
+	"golang.org/x/net/context"
 
 	"github.com/brnstz/routine/wikimg"
 )
@@ -20,7 +21,7 @@ type imgRequest struct {
 	p         *wikimg.Puller
 	url       string
 	responses chan imgResponse
-	cancel    chan struct{}
+	ctx       context.Context
 }
 
 type imgResponse struct {
@@ -32,7 +33,7 @@ func main() {
 	var max, workers, buffer, port int
 
 	flag.IntVar(&max, "max", 100, "maximum number of images per request")
-	flag.IntVar(&workers, "workers", 50, "number of background workers")
+	flag.IntVar(&workers, "workers", 100, "number of background workers")
 	flag.IntVar(&buffer, "buffer", 10000, "size of buffered channels")
 	flag.IntVar(&port, "port", 8000, "HTTP port to listen on")
 	flag.Parse()
@@ -44,34 +45,18 @@ func main() {
 	for i := 0; i < workers; i++ {
 		go func() {
 			for req := range imgReqs {
-				// Create a local channel for receiving the response
-				localResponse := make(chan imgResponse, 1)
-				go func() {
-					// Get the first color in this image
-					_, hex, err := req.p.FirstColor(req.url)
 
-					localResponse <- imgResponse{
-						hex: hex,
-						err: err,
-					}
-				}()
+				// Get the first color in this image
+				_, hex, err := req.p.FirstColor(req.url)
 
-				// Either get the response or timeout
-				select {
-				case resp := <-localResponse:
-					// We got it in time, send it back to client
-					req.responses <- resp
-				case <-req.cancel:
-					break
-
-				case <-time.After(2 * time.Second):
-					// We timed out. Send an error back to the client
-					// and cancel our request.
-					close(req.cancel)
-					req.responses <- imgResponse{
-						err: errors.New("timeout"),
-					}
+				// Create a response object
+				resp := imgResponse{
+					hex: hex,
+					err: err,
 				}
+
+				// Send it back on our response channel
+				req.responses <- resp
 			}
 		}()
 	}
@@ -80,9 +65,10 @@ func main() {
 		// Create a new image puller with our max
 		p := wikimg.NewPuller(max)
 
-		cancel := make(chan struct{})
+		// Create a context
+		ctx, _ := context.WithTimeout(context.Background(), time.Second*20)
 
-		p.Cancel = cancel
+		p.Cancel = ctx.Done()
 
 		// Create a channel for receiving responses specific
 		// to this HTTP request
@@ -114,7 +100,7 @@ func main() {
 				p:         p,
 				url:       imgURL,
 				responses: responses,
-				cancel:    cancel,
+				ctx:       ctx,
 			}
 		}
 

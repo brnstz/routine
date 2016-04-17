@@ -25,9 +25,9 @@ var (
 	// EndOfResults is returned by Next() when no more results are available
 	EndOfResults = errors.New("end of results")
 
-	// Cancelled may be returned by Next() and FirstColor() when the client
+	// Canceled may be returned by Next() and FirstColor() when the client
 	// closes the Cancel channel on a Puller
-	Cancelled = errors.New("cancelled")
+	Canceled = errors.New("wikimg: canceled image processing")
 )
 
 const (
@@ -37,7 +37,8 @@ const (
 	// apiMax is the max results we can request from the API at one time
 	apiMax = 500
 
-	// cancelCheckpoint
+	// cancelCheckpoint is the number of pixels between checking
+	// whether the request was canceled when running FirstColor()
 	cancelCheckpoint = 10000
 )
 
@@ -78,8 +79,8 @@ type Puller struct {
 	// Cancel is an optional channel. Setting this value on Puller
 	// and closing the channel signals to the Puller that any
 	// in process operations (i.e, retrieving an image or computing
-	// its first color) should be cancelled. Any future
-	// calls to Next() or FirstColor() will return a Cancelled
+	// its first color) should be canceled. Any future
+	// calls to Next() or FirstColor() will return a Canceled
 	// error.
 	Cancel <-chan struct{}
 }
@@ -100,11 +101,11 @@ func (p *Puller) Next() (string, error) {
 		return "", EndOfResults
 	}
 
-	// Ensure we haven't been cancelled yet
+	// Ensure we haven't been canceled yet
 	select {
 	case <-p.Cancel:
 		// If p.Cancel has been closed, this will be triggered
-		return "", Cancelled
+		return "", Canceled
 
 	default:
 		// Otherwise we'll just do nothing immediately
@@ -224,7 +225,7 @@ func (p *Puller) FirstColor(imgURL string) (xtermColor int, hex string, err erro
 				select {
 
 				case <-p.Cancel:
-					err = Cancelled
+					err = Canceled
 					return
 				default:
 
