@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -77,9 +78,9 @@ func NewPuller(max int) *Puller {
 	}
 }
 
-// Next returns the next most recent image URL. If no more results are
+// NextURL returns the next most recent image URL. If no more results are
 // available EndOfResults is returned as an error.
-func (p *Puller) Next() (string, error) {
+func (p *Puller) NextURL() (string, error) {
 	// If we've exceeded that max we want to get, then stop
 	if p.count >= p.max {
 		return "", EndOfResults
@@ -150,6 +151,20 @@ func (p *Puller) Next() (string, error) {
 	return p.qr.Query.AllImages[p.i].URL, nil
 }
 
+func (p *Puller) NextImage() (*Image, error) {
+	nextURL, err := p.NextURL()
+	if err != nil {
+		return nil, err
+	}
+
+	img, err := newImage(nextURL)
+	if err != nil {
+		return nil, err
+	}
+
+	return img, nil
+}
+
 // FirstColor tries to return the first non-gray color in the image. A gray
 // color is one that, when mapped to an xterm256 palette, has the same value
 // for red, green and blue. Ok, we've defined "gray". What does "first" mean?
@@ -164,13 +179,17 @@ func FirstColor(imgURL string) (xtermColor int, hex string, err error) {
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
 
+	return firstColor(resp.Body)
+}
+
+func firstColor(r io.ReadCloser) (xtermColor int, hex string, err error) {
 	// Decode into an object
-	img, _, err := image.Decode(resp.Body)
+	img, _, err := image.Decode(r)
 	if err != nil {
 		return
 	}
+	defer r.Close()
 
 	// Use our XTerm256 as a color.Palette so we can map the colors of the
 	// image to our palette.
@@ -209,4 +228,39 @@ func FirstColor(imgURL string) (xtermColor int, hex string, err error) {
 	}
 
 	return
+
+}
+
+type Image struct {
+	URL string
+	req *http.Request
+}
+
+func newImage(imgURL string) (*Image, error) {
+	req, err := http.NewRequest("GET", imgURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	img := &Image{
+		URL: imgURL,
+		req: req,
+	}
+
+	img.req.Close = make(chan struct{}, 1)
+
+	return img, nil
+}
+
+func (img *Image) FirstColor() (xtermColor int, hex string, err error) {
+	resp, err := http.DefaultClient.Do(img.req)
+	if err != nil {
+		return
+	}
+
+	return firstColor(resp.Body)
+}
+
+func (img *Image) Cancel() {
+	close(img.req.Cancel)
 }
