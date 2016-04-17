@@ -22,7 +22,6 @@ type imgRequest struct {
 	p         *wikimg.Puller
 	url       string
 	responses chan imgResponse
-	ctx       context.Context
 }
 
 // imgResponse contains the result of processing an imgRequest
@@ -108,7 +107,6 @@ func main() {
 				p:         p,
 				url:       imgURL,
 				responses: responses,
-				ctx:       ctx,
 			}
 		}
 
