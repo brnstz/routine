@@ -41,7 +41,7 @@ func main() {
 			for imgURL := range imgURLs {
 
 				// Get the first color in this image
-				color, _, err := wikimg.FirstColor(imgURL)
+				color, _, err := p.FirstColor(imgURL)
 				if err != nil {
 					log.Println(err)
 					continue

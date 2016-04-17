@@ -30,14 +30,14 @@ func main() {
 
 	// Create another buffered channel to receive "done" messages from
 	// workers
-	done := make(chan bool, buffer)
+	done := make(chan struct{}, buffer)
 
 	for i := 0; i < workers; i++ {
 		go func() {
 			for imgURL := range imgURLs {
 
 				// Get the first color in this image
-				color, _, err := wikimg.FirstColor(imgURL)
+				color, _, err := p.FirstColor(imgURL)
 				if err != nil {
 					log.Println(err)
 					continue
@@ -48,7 +48,7 @@ func main() {
 			}
 
 			// Signal that we are done
-			done <- true
+			done <- struct{}{}
 		}()
 	}
 

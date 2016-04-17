@@ -15,6 +15,7 @@ var (
 )
 
 type imgRequest struct {
+	p         *wikimg.Puller
 	url       string
 	responses chan imgResponse
 }
@@ -42,11 +43,11 @@ func main() {
 			for req := range imgReqs {
 
 				// Get the first color in this image
-				_, color, err := wikimg.FirstColor(req.url)
+				_, hex, err := req.p.FirstColor(req.url)
 
 				// Create a response object
 				resp := imgResponse{
-					hex: color,
+					hex: hex,
 					err: err,
 				}
 
@@ -87,6 +88,7 @@ func main() {
 
 			// Create request and send on the global channel
 			imgReqs <- &imgRequest{
+				p:         p,
 				url:       imgURL,
 				responses: responses,
 			}

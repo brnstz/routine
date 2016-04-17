@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -23,8 +22,12 @@ import (
 )
 
 var (
-	// EndOfResults is returned by Next when no more results are available
+	// EndOfResults is returned by Next() when no more results are available
 	EndOfResults = errors.New("end of results")
+
+	// Cancelled may be returned by Next() and FirstColor() when the client
+	// closes the Cancel channel on a Puller
+	Cancelled = errors.New("cancelled")
 )
 
 const (
@@ -33,6 +36,9 @@ const (
 
 	// apiMax is the max results we can request from the API at one time
 	apiMax = 500
+
+	// cancelCheckpoint
+	cancelCheckpoint = 10000
 )
 
 // queryResp mirrors the JSON structure returned by queryURL, specifying only
@@ -68,6 +74,14 @@ type Puller struct {
 
 	// max is the maximum number of images we want to collect
 	max int
+
+	// Cancel is an optional channel. Setting this value on Puller
+	// and closing the channel signals to the Puller that any
+	// in process operations (i.e, retrieving an image or computing
+	// its first color) should be cancelled. Any future
+	// calls to Next() or FirstColor() will return a Cancelled
+	// error.
+	Cancel <-chan struct{}
 }
 
 // NewPuller creates a puller that can return at most max images
@@ -78,12 +92,22 @@ func NewPuller(max int) *Puller {
 	}
 }
 
-// NextURL returns the next most recent image URL. If no more results are
+// Next returns the next most recent image URL. If no more results are
 // available EndOfResults is returned as an error.
-func (p *Puller) NextURL() (string, error) {
+func (p *Puller) Next() (string, error) {
 	// If we've exceeded that max we want to get, then stop
 	if p.count >= p.max {
 		return "", EndOfResults
+	}
+
+	// Ensure we haven't been cancelled yet
+	select {
+	case <-p.Cancel:
+		// If p.Cancel has been closed, this will be triggered
+		return "", Cancelled
+
+	default:
+		// Otherwise we'll just do nothing immediately
 	}
 
 	// If we're within the length of our current request,
@@ -151,20 +175,6 @@ func (p *Puller) NextURL() (string, error) {
 	return p.qr.Query.AllImages[p.i].URL, nil
 }
 
-func (p *Puller) NextImage() (*Image, error) {
-	nextURL, err := p.NextURL()
-	if err != nil {
-		return nil, err
-	}
-
-	img, err := newImage(nextURL)
-	if err != nil {
-		return nil, err
-	}
-
-	return img, nil
-}
-
 // FirstColor tries to return the first non-gray color in the image. A gray
 // color is one that, when mapped to an xterm256 palette, has the same value
 // for red, green and blue. Ok, we've defined "gray". What does "first" mean?
@@ -173,44 +183,63 @@ func (p *Puller) NextImage() (*Image, error) {
 // through every pixel, give up, and return the final pixel color even though
 // it's gray. Both the xtermColor (an integer between 0-255) and a hex
 // string (e.g., "#bb00cc") is returned.
-func FirstColor(imgURL string) (xtermColor int, hex string, err error) {
+func (p *Puller) FirstColor(imgURL string) (xtermColor int, hex string, err error) {
+	// Create a request so we can use req.Cancel
+	req, err := http.NewRequest("GET", imgURL, nil)
+	if err != nil {
+		return
+	}
+
+	// Set up cancellation pipeline, link request to puller
+	req.Cancel = p.Cancel
+
 	// Call the image server
-	resp, err := http.Get(imgURL)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return
 	}
+	defer resp.Body.Close()
 
-	return firstColor(resp.Body)
-}
-
-func firstColor(r io.ReadCloser) (xtermColor int, hex string, err error) {
 	// Decode into an object
-	img, _, err := image.Decode(r)
+	img, _, err := image.Decode(resp.Body)
 	if err != nil {
 		return
 	}
-	defer r.Close()
 
 	// Use our XTerm256 as a color.Palette so we can map the colors of the
 	// image to our palette.
-	p := color.Palette(XTerm256)
+	pal := color.Palette(XTerm256)
 
 	// Iterate through every pixel and try to find a color. If we don't
 	// find a color (i.e., the image is grayscale) we'll default to the last
 	// pixel in the image.
 	rect := img.Bounds()
+	i := 0
 	for x := 0; x < rect.Dx(); x++ {
 		for y := 0; y < rect.Dy(); y++ {
+
+			// Check if p.Cancel has been closed once every cancelCheckpoint
+			// iterations
+			if i%cancelCheckpoint == 0 {
+				select {
+
+				case <-p.Cancel:
+					err = Cancelled
+					return
+				default:
+
+				}
+			}
 
 			// xtermColor is the index in the palette which this
 			// actual color maps to. It is also (by design) the
 			// xterm256 value that maps to this color.
-			xtermColor = p.Index(img.At(x, y))
+			xtermColor = pal.Index(img.At(x, y))
 
 			// Get the color.RGBA value for this color. Not great to do a type
 			// assertion here but easiest way to get 8-bit values without bit
 			// fiddling.
-			rgba, ok := p[xtermColor].(color.RGBA)
+			rgba, ok := pal[xtermColor].(color.RGBA)
 			if !ok {
 				err = errors.New("can't assert to color.RGBA")
 				return
@@ -228,39 +257,4 @@ func firstColor(r io.ReadCloser) (xtermColor int, hex string, err error) {
 	}
 
 	return
-
-}
-
-type Image struct {
-	URL string
-	req *http.Request
-}
-
-func newImage(imgURL string) (*Image, error) {
-	req, err := http.NewRequest("GET", imgURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	img := &Image{
-		URL: imgURL,
-		req: req,
-	}
-
-	img.req.Close = make(chan struct{}, 1)
-
-	return img, nil
-}
-
-func (img *Image) FirstColor() (xtermColor int, hex string, err error) {
-	resp, err := http.DefaultClient.Do(img.req)
-	if err != nil {
-		return
-	}
-
-	return firstColor(resp.Body)
-}
-
-func (img *Image) Cancel() {
-	close(img.req.Cancel)
 }
