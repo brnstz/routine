@@ -12,6 +12,25 @@ var (
 	fmtSpec = "\x1b[30;48;5;%dm%-80s\x1b[0m\n"
 )
 
+// worker takes urls from the in channel, prints the color to the terminal and
+// sends any errors back to the out channel.
+func worker(p *wikimg.Puller, in chan string, out chan error) {
+	for url := range in {
+
+		// Get the first color in this image
+		color, _, err := p.FirstColor(url)
+
+		if err == nil {
+			// Print color to the terminal when there's no
+			// error
+			fmt.Printf(fmtSpec, color, "")
+		}
+
+		// Send err (possibly nil) on the channel
+		out <- err
+	}
+}
+
 func main() {
 	var max, workers, buffer int
 
@@ -32,22 +51,7 @@ func main() {
 	errs := make(chan error, buffer)
 
 	for i := 0; i < workers; i++ {
-		go func() {
-			for imgURL := range imgURLs {
-
-				// Get the first color in this image
-				color, _, err := p.FirstColor(imgURL)
-
-				if err == nil {
-					// Print color to the terminal when there's no
-					// error
-					fmt.Printf(fmtSpec, color, "")
-				}
-
-				// Send err (possibly nil) on the channel
-				errs <- err
-			}
-		}()
+		go worker(p, imgURLs, errs)
 	}
 
 	// Loop to retrieve more images
@@ -59,7 +63,8 @@ func main() {
 			break
 
 		} else if err != nil {
-			// Send error on err channel and continue
+			// Errors can occur before we send the request to the worker.
+			// No problem, we can use the error channel here, too.
 			errs <- err
 			continue
 		}

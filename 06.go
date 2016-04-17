@@ -17,6 +17,7 @@ var (
 	fmtSpec = `<div style="background: %s; width=100%%">&nbsp;</div>`
 )
 
+// imgRequest is a request to get the first color from a URL
 type imgRequest struct {
 	p         *wikimg.Puller
 	url       string
@@ -24,9 +25,28 @@ type imgRequest struct {
 	ctx       context.Context
 }
 
+// imgResponse contains the result of processing an imgRequest
 type imgResponse struct {
 	hex string
 	err error
+}
+
+// worker takes imgRequests on the in channel, processes them and sends
+// an imgResponse back on the request's channel
+func worker(in chan *imgRequest) {
+	for req := range in {
+		// Get the first color in this image
+		_, hex, err := req.p.FirstColor(req.url)
+
+		// Create a response object
+		resp := imgResponse{
+			hex: hex,
+			err: err,
+		}
+
+		// Send it back on our response channel
+		req.responses <- resp
+	}
 }
 
 func main() {
@@ -42,23 +62,9 @@ func main() {
 	// puller loop and workers
 	imgReqs := make(chan *imgRequest, buffer)
 
+	// Create workers
 	for i := 0; i < workers; i++ {
-		go func() {
-			for req := range imgReqs {
-
-				// Get the first color in this image
-				_, hex, err := req.p.FirstColor(req.url)
-
-				// Create a response object
-				resp := imgResponse{
-					hex: hex,
-					err: err,
-				}
-
-				// Send it back on our response channel
-				req.responses <- resp
-			}
-		}()
+		go worker(imgReqs)
 	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
