@@ -83,5 +83,5 @@ func main() {
 		// Pull off the done channel but don't bother capturing the value
 		<-done
 	}
-
+	fmt.Println("Complete.")
 }
