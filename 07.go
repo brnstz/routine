@@ -18,6 +18,7 @@ var (
 	// Print an HTML div with the hex background
 	fmtSpec = `<div style="background: %s; width=100%%">&nbsp;</div>`
 
+	// cache is our global cache of urls to imgResponse values
 	cache = newColorCache(50000)
 )
 
@@ -77,6 +78,7 @@ func (cc *colorCache) Add(url string, resp imgResponse) {
 func (cc *colorCache) Get(url string) (imgResponse, bool) {
 	cc.mutex.RLock()
 
+	// Get it within read lock
 	resp, ok := cc.hmap[url]
 
 	cc.mutex.RUnlock()
@@ -107,9 +109,9 @@ func worker(in chan *imgRequest) {
 		resp, ok := cache.Get(req.url)
 
 		if !ok {
-			// It wasn't in the cache, so actually get it
-			_, resp.hex, resp.err = req.p.FirstColor(req.url)
 
+			// It wasn't in the cache, so actually get it and add it
+			_, resp.hex, resp.err = req.p.FirstColor(req.url)
 			cache.Add(req.url, resp)
 		}
 
