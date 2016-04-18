@@ -176,12 +176,11 @@ func (p *Puller) Next() (string, error) {
 
 // FirstColor tries to return the first non-gray color in the image. A gray
 // color is one that, when mapped to an xterm256 palette, has the same value
-// for red, green and blue. Ok, we've defined "gray". What does "first" mean?
-// We iterate through pixels starting with 0,0 (top left) and move to the
-// bottom right one by one. In the worst case (a grayscale image), we iterate
-// through every pixel, give up, and return the final pixel color even though
-// it's gray. Both the xtermColor (an integer between 0-255) and a hex string
-// (e.g., "#bb00cc") is returned.
+// for red, green and blue. We iterate through pixels starting with 0,0 and
+// through each x and y value. In the worst case (a grayscale image), we
+// iterate through every pixel, give up, and return the final pixel color even
+// though it's gray. Both the xtermColor (an integer between 0-255) and a hex
+// string (e.g., "#bb00cc") is returned.
 func (p *Puller) FirstColor(imgURL string) (xtermColor int, hex string, err error) {
 	// Create a request so we can use req.Cancel
 	req, err := http.NewRequest("GET", imgURL, nil)
