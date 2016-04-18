@@ -20,7 +20,7 @@ var (
 	fmtSpec = `<a style="text-decoration: none" href="%s"><div style="background: %s; width=100%%">&nbsp;</div></a>`
 
 	// cache is our global cache of urls to imgResponse values
-	cache = newColorCache(50000)
+	cache *colorCache
 )
 
 // colorCache is a cache of recent URLs to imgResponse values. It expires older
@@ -97,6 +97,7 @@ func (cc *colorCache) GetMulti(max int, out chan imgResponse) {
 
 	i := 0
 	for _, v := range cc.hmap {
+		// Break if we've reached max
 		if i > max {
 			break
 		}
@@ -109,6 +110,7 @@ func (cc *colorCache) GetMulti(max int, out chan imgResponse) {
 		i++
 		out <- v
 	}
+
 	close(out)
 
 	cc.mutex.RUnlock()
@@ -152,14 +154,18 @@ func worker(in chan *imgRequest) {
 }
 
 func main() {
-	var max, bgmax, workers, buffer, port int
+	var max, bgmax, workers, buffer, port, cacheSize int
 
 	flag.IntVar(&max, "max", 300, "max number of images per HTTP request")
 	flag.IntVar(&bgmax, "bgmax", 1000, "max images to pull on each background request")
 	flag.IntVar(&workers, "workers", 25, "number of background workers")
 	flag.IntVar(&buffer, "buffer", 10000, "size of buffered channels")
 	flag.IntVar(&port, "port", 8000, "HTTP port to listen on")
+	flag.IntVar(&cacheSize, "cache", 50000, "size of our background cache")
 	flag.Parse()
+
+	// Initialize the cache
+	cache = newColorCache(cacheSize)
 
 	// Create a buffered channel for communicating between image
 	// puller loop and workers
