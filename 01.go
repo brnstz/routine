@@ -36,6 +36,7 @@ func main() {
 			continue
 		}
 
+		// Everybody gets a goroutine!
 		go func() {
 			// Get the first color in this image
 			color, _, err := p.FirstColor(imgURL)
