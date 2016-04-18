@@ -43,6 +43,7 @@ func newColorCache(max int) *colorCache {
 	}
 }
 
+// Add saves a url and its response to our cache
 func (cc *colorCache) Add(url string, resp imgResponse) {
 	// Lock the cache while we're adding
 	cc.mutex.Lock()
@@ -77,6 +78,8 @@ func (cc *colorCache) Add(url string, resp imgResponse) {
 	cc.mutex.Unlock()
 }
 
+// Get retrieves an imgResponse by its url, returning whether it was found or
+// not as the second value
 func (cc *colorCache) Get(url string) (imgResponse, bool) {
 	cc.mutex.RLock()
 
@@ -88,6 +91,8 @@ func (cc *colorCache) Get(url string) (imgResponse, bool) {
 	return resp, ok
 }
 
+// GetMulti feeds at most max values into the out channel, closing it when all
+// possible entries have been exhausted (may be less than max)
 func (cc *colorCache) GetMulti(max int, out chan imgResponse) {
 	cc.mutex.RLock()
 
@@ -180,8 +185,8 @@ func main() {
 			// context times out
 			p.Cancel = ctx.Done()
 
-			// Create a channel for receiving responses specific
-			// to this HTTP request
+			// Create a channel for receiving responses in this background
+			// process
 			responses := make(chan imgResponse, max)
 
 			// Loop to retrieve more images
@@ -224,6 +229,7 @@ func main() {
 	}()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Create a channel
 		responses := make(chan imgResponse, max)
 
 		// Everybody gets a goroutine!

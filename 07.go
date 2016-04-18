@@ -43,6 +43,7 @@ func newColorCache(max int) *colorCache {
 	}
 }
 
+// Add saves a url and its response to our cache
 func (cc *colorCache) Add(url string, resp imgResponse) {
 	// Lock the cache while we're adding
 	cc.mutex.Lock()
@@ -75,6 +76,8 @@ func (cc *colorCache) Add(url string, resp imgResponse) {
 	cc.mutex.Unlock()
 }
 
+// Get retrieves an imgResponse by its url, returning whether it was found or
+// not as the second value
 func (cc *colorCache) Get(url string) (imgResponse, bool) {
 	cc.mutex.RLock()
 
