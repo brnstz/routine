@@ -48,8 +48,6 @@ func (cc *colorCache) Add(url string, resp imgResponse) {
 	// Lock the cache while we're adding
 	cc.mutex.Lock()
 
-	log.Println("adding", url)
-
 	if cc.count >= cc.max {
 		// If we've exceeded the max size, we must remove the oldest
 		// element
