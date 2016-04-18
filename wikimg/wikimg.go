@@ -14,8 +14,7 @@ import (
 	"net/url"
 	"strconv"
 
-	// We define which image formats we support by importing
-	// decoder packages
+	// We define which image formats we support by importing decoder packages
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
@@ -37,8 +36,8 @@ const (
 	// apiMax is the max results we can request from the API at one time
 	apiMax = 500
 
-	// cancelCheckpoint is the number of pixels between checking
-	// whether the request was canceled when running FirstColor()
+	// cancelCheckpoint is the number of pixels between checking whether the
+	// request was canceled when running FirstColor()
 	cancelCheckpoint = 10000
 )
 
@@ -85,8 +84,8 @@ type Puller struct {
 	Cancel <-chan struct{}
 }
 
-// NewPuller creates a puller that can return at most max images
-// when calls to Next() are made
+// NewPuller creates a puller that can return at most max images when calls to
+// Next() are made
 func NewPuller(max int) *Puller {
 	return &Puller{
 		max: max,
@@ -130,8 +129,7 @@ func (p *Puller) Next() (string, error) {
 	params.Set("aidir", "descending")
 	params.Set("aisort", "timestamp")
 
-	// 500 is the most allowed by the API per request, but we may want
-	// less.
+	// 500 is the most allowed by the API per request, but we may want less.
 	if p.count+apiMax > p.max {
 		params.Set("ailimit", strconv.Itoa(p.max-p.count))
 	} else {
@@ -182,8 +180,8 @@ func (p *Puller) Next() (string, error) {
 // We iterate through pixels starting with 0,0 (top left) and move to the
 // bottom right one by one. In the worst case (a grayscale image), we iterate
 // through every pixel, give up, and return the final pixel color even though
-// it's gray. Both the xtermColor (an integer between 0-255) and a hex
-// string (e.g., "#bb00cc") is returned.
+// it's gray. Both the xtermColor (an integer between 0-255) and a hex string
+// (e.g., "#bb00cc") is returned.
 func (p *Puller) FirstColor(imgURL string) (xtermColor int, hex string, err error) {
 	// Create a request so we can use req.Cancel
 	req, err := http.NewRequest("GET", imgURL, nil)
@@ -211,9 +209,9 @@ func (p *Puller) FirstColor(imgURL string) (xtermColor int, hex string, err erro
 	// image to our palette.
 	pal := color.Palette(XTerm256)
 
-	// Iterate through every pixel and try to find a color. If we don't
-	// find a color (i.e., the image is grayscale) we'll default to the last
-	// pixel in the image.
+	// Iterate through every pixel and try to find a color. If we don't find a
+	// color (i.e., the image is grayscale) we'll default to the last pixel in
+	// the image.
 	rect := img.Bounds()
 	i := 0
 	for x := 0; x < rect.Dx(); x++ {
@@ -251,8 +249,7 @@ func (p *Puller) FirstColor(imgURL string) (xtermColor int, hex string, err erro
 			// Compute the hex value of the color
 			hex = fmt.Sprintf("#%02x%02x%02x", rgba.R, rgba.G, rgba.B)
 
-			// If any of the RGB values differ, it's a color, so we can
-			// stop.
+			// If any of the RGB values differ, it's a color, so we can stop.
 			if !(rgba.R == rgba.G && rgba.G == rgba.B) {
 				break
 			}
