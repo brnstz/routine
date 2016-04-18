@@ -16,7 +16,7 @@ import (
 
 var (
 	// Print an HTML div with the hex background
-	fmtSpec = `<div style="background: %s; width=100%%">&nbsp;</div>`
+	fmtSpec = `<a style="text-decoration: none" href="%s"><div style="background: %s; width=100%%">&nbsp;</div></a>`
 
 	// cache is our global cache of urls to imgResponse values
 	cache = newColorCache(50000)
@@ -122,6 +122,7 @@ type imgRequest struct {
 
 // imgResponse contains the result of processing an imgRequest
 type imgResponse struct {
+	url string
 	hex string
 	err error
 }
@@ -139,6 +140,8 @@ func worker(in chan *imgRequest) {
 
 			// It wasn't in the cache, so actually get it and add it
 			_, resp.hex, resp.err = req.p.FirstColor(req.url)
+			resp.url = req.url
+
 			cache.Add(req.url, resp)
 		}
 
@@ -234,7 +237,7 @@ func main() {
 		go cache.GetMulti(max, responses)
 
 		for resp := range responses {
-			fmt.Fprintf(w, fmtSpec, resp.hex)
+			fmt.Fprintf(w, fmtSpec, resp.url, resp.hex)
 			fmt.Fprintln(w)
 		}
 	})
