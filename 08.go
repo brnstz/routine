@@ -15,7 +15,8 @@ import (
 )
 
 var (
-	// Print an HTML div with the hex background
+	// Print an HTML div with the hex background, also make it link
+	// to the image itself
 	fmtSpec = `<a style="text-decoration: none" href="%s"><div style="background: %s; width=100%%">&nbsp;</div></a>`
 
 	// cache is our global cache of urls to imgResponse values
