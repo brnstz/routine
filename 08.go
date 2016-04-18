@@ -145,9 +145,10 @@ func worker(in chan *imgRequest) {
 }
 
 func main() {
-	var max, workers, buffer, port int
+	var max, bgmax, workers, buffer, port int
 
-	flag.IntVar(&max, "max", 100, "maximum number of images per request")
+	flag.IntVar(&max, "max", 300, "max number of images per HTTP request")
+	flag.IntVar(&bgmax, "bgmax", 1000, "max images to pull on each background request")
 	flag.IntVar(&workers, "workers", 25, "number of background workers")
 	flag.IntVar(&buffer, "buffer", 10000, "size of buffered channels")
 	flag.IntVar(&port, "port", 8000, "HTTP port to listen on")
@@ -168,8 +169,8 @@ func main() {
 		// Loop forever
 		for {
 
-			// Create a new image puller with our max
-			p := wikimg.NewPuller(max)
+			// Create a new image puller with our bgmax
+			p := wikimg.NewPuller(bgmax)
 
 			// Since this is running in the background, we can have a much
 			// longer timeout
@@ -225,6 +226,7 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		responses := make(chan imgResponse, max)
 
+		// Everybody gets a goroutine!
 		go cache.GetMulti(max, responses)
 
 		for resp := range responses {
