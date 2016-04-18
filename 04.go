@@ -88,5 +88,4 @@ func main() {
 	}
 
 	fmt.Printf("Successfully processed %d/%d requests.\n", max-errCount, max)
-
 }
