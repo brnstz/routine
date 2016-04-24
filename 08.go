@@ -219,7 +219,7 @@ func main() {
 				}
 			}
 
-			for i := 0; i < max; i++ {
+			for i := 0; i < bgmax; i++ {
 				// Read a response from the channel
 				resp := <-responses
 
