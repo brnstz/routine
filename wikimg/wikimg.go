@@ -235,22 +235,15 @@ func (p *Puller) FirstColor(imgURL string) (xtermColor int, hex string, err erro
 			// actual color maps to. It is also (by design) the
 			// xterm256 value that maps to this color.
 			xtermColor = pal.Index(img.At(x, y))
-
-			// Get the color.RGBA value for this color. Not great to do a type
-			// assertion here but easiest way to get 8-bit values without bit
-			// fiddling.
-			rgba, ok := pal[xtermColor].(color.RGBA)
-			if !ok {
-				err = errors.New("can't assert to color.RGBA")
-				return
-			}
+			c := pal[xtermColor]
+			r, g, b, _ := c.RGBA()
 
 			// Compute the hex value of the color
-			hex = fmt.Sprintf("#%02x%02x%02x", rgba.R, rgba.G, rgba.B)
+			hex = fmt.Sprintf("#%02x%02x%02x", r>>8, g>>8, b>>8)
 
 			// If any of the RGB values differ, it's a color, so we can stop.
-			if !(rgba.R == rgba.G && rgba.G == rgba.B) {
-				break
+			if !(r == g && g == b) {
+				return
 			}
 		}
 	}
