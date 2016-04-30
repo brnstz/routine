@@ -230,6 +230,7 @@ func (p *Puller) FirstColor(imgURL string) (xtermColor int, hex string, err erro
 					// Otherwise we'll just do nothing immediately
 				}
 			}
+			i++
 
 			// xtermColor is the index in the palette which this
 			// actual color maps to. It is also (by design) the
